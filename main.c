@@ -12,13 +12,7 @@ int i;
 	return 1;
 }
 
-void escolhe_send(char a){
-
-// MPI_Send
-// MPI_Isend
-// MPI_Rsend
-// MPI_Bsend
-// MPI_Ssend
+void escolhe_send(char a, void *buf, int count, MPI_Datatype type, int dest, int tag) {
 
     switch (a)
     {
@@ -32,110 +26,112 @@ void escolhe_send(char a){
         /* code */
         break;
     case '4':
-        /* code */
+        MPI_Bsend(buf, count, type, dest, tag, MPI_COMM_WORLD);
         break;
     case '5':
-        /* code */
+        MPI_Ssend(buf, count, type, dest, tag, MPI_COMM_WORLD);
         break;
-  
-    
     default:
         break;
     }
 }
-void escolhe_receive(char b){
 
-    // MPI_Recv ou MPI_Irecv
+void escolhe_receive(char b, void *buf, int count, MPI_Datatype type, int source, int tag, MPI_Status *status) {
 
+    //MPI_Request request;
     switch (b)
     {
     case '1':
-        /* code */
+        MPI_Recv(buf, count, type, source, tag, MPI_COMM_WORLD, status);
         break;
     case '2':
         /* code */
+        //MPI_Wait(&request, status);
         break;
-  
-    
     default:
         break;
     }
-
 }
 
-int main(int argc, char *argv[]) { /* mpi_primosbag.c  */
+int main(int argc, char *argv[]) {
 double t_inicial, t_final;
 int cont = 0, total = 0;
 int i, n;
-int meu_ranque, num_procs, inicio, dest, raiz=0, tag=1, stop=0;
+int meu_ranque, num_procs, inicio, dest, raiz=0, stop=0;
+void *buffer_bsend = NULL;
 MPI_Status estado;
 /* Verifica o número de argumentos passados */
-	if (argc < 2) {
-        printf("Entre com o valor do maior inteiro como parâmetro para o programa.\n");
-       	 return 0;
-    } else {
-        n = strtol(argv[1], (char **) NULL, 10);
+	if (argc < 4) {
+        printf("Uso: %s <limite> <modo_send> <modo_recv>\n", argv[0]);
+        return 0;
     }
+    
+    n = atoi(argv[1]);
+    char m_send = argv[2][0];
+    char m_recv = argv[3][0];
+    
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &meu_ranque);
 	MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    
 /* Se houver menos que dois processos aborta */
     if (num_procs < 2) {
-        printf("Este programa deve ser executado com no mínimo dois processos.\n");
-        MPI_Abort(MPI_COMM_WORLD, 1);
-       	return(1);
+        if (meu_ranque == 0) printf("Este programa exige pelo menos 2 processos.\n");
+        MPI_Finalize();
+        return 1;
     }
+/* Preparação para buffer em caso BSend */
+    if (m_send == '4') {
+        int size_int;
+        MPI_Pack_size(1, MPI_INT, MPI_COMM_WORLD, &size_int);
+        int buffer_size = num_procs * (size_int + MPI_BSEND_OVERHEAD);
+        buffer_bsend = malloc(buffer_size);
+        MPI_Buffer_attach(buffer_bsend, buffer_size);
+    }
+    
 /* Registra o tempo inicial de execução do programa */
     t_inicial = MPI_Wtime();
+    
 /* Envia pedaços com TAMANHO números para cada processo */
     if (meu_ranque == 0) { 
-        /*
-        for (dest=1, inicio=3; dest < num_procs && inicio < n; dest++, inicio += TAMANHO) {
-            MPI_Send(&inicio, 1, MPI_INT, dest, tag, MPI_COMM_WORLD);
-        }
-        */
         for (dest = 1, inicio = 3; dest < num_procs; dest++) {
             if (inicio < n) {
-                // escolhe_send
-                MPI_Send(&inicio, 1, MPI_INT, dest, tag, MPI_COMM_WORLD);
+                escolhe_send(m_send, &inicio, 1, MPI_INT, dest, 1);
                 inicio += TAMANHO;
             } else {
-                tag = 99;
-                // escolhe_send
-
-                MPI_Send(&inicio, 1, MPI_INT, dest, tag, MPI_COMM_WORLD);
+                escolhe_send(m_send, &inicio, 1, MPI_INT, dest, 99);
                 stop++;
             }
         }
-        // 1000003
+        
 /* Fica recebendo as contagens parciais de cada processo */
         while (stop < (num_procs-1)) {
-		    MPI_Recv(&cont, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &estado);
+		    escolhe_receive(m_recv, &cont, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, &estado);
             total += cont;
             dest = estado.MPI_SOURCE;
-            if (inicio > n) {
-                tag = 99;
+            
+            if (inicio < n) {
+                escolhe_send(m_send, &inicio, 1, MPI_INT, dest, 1);
+                inicio += TAMANHO;
+            } else {
+                escolhe_send(m_send, &inicio, 1, MPI_INT, dest, 99);
                 stop++;
             }
-/* Envia um nvo pedaço com TAMANHO números para o mesmo processo*/
-            MPI_Send(&inicio, 1, MPI_INT, dest, tag, MPI_COMM_WORLD);
-            inicio += TAMANHO;
         }
     }       
     else { 
 /* Cada processo escravo recebe o início do espaço de busca */
-        while (estado.MPI_TAG != 99) {
-            MPI_Recv(&inicio, 1, MPI_INT, raiz, MPI_ANY_TAG, MPI_COMM_WORLD, &estado);
-            if (estado.MPI_TAG != 99) {
-                for (i = inicio, cont=0; i < (inicio + TAMANHO) && i < n; i+=2) 
-		            if (primo(i) == 1)
-                        cont++;
+        while (1) {
+            escolhe_receive(m_recv, &inicio, 1, MPI_INT, 0, MPI_ANY_TAG, &estado);
+            
+            if (estado.MPI_TAG == 99) break;
+            
+            cont = 0;
+            for (i = inicio; i < (inicio + TAMANHO) && i < n; i+=2) 
+                if (primo(i)) cont++;
 /* Envia a contagem parcial para o processo mestre */
-                MPI_Send(&cont, 1, MPI_INT, raiz, tag, MPI_COMM_WORLD);
-            } 
+            escolhe_send(m_send, &cont, 1, MPI_INT, 0, 1);
         } 
-/* Registra o tempo final de execução */
-    t_final = MPI_Wtime();
     }
 	if (meu_ranque == 0) {
 		t_final = MPI_Wtime();
@@ -145,6 +141,13 @@ MPI_Status estado;
 	}
 /* Finaliza o programa */
 	MPI_Barrier(MPI_COMM_WORLD);
+    
+    if (m_send == '4') {
+        int size_extra;
+        MPI_Buffer_detach(&buffer_bsend, &size_extra);
+        free(buffer_bsend);
+    }
+    
 	MPI_Finalize();
 	return(0);
 }
