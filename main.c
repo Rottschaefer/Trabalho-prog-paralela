@@ -12,18 +12,37 @@ int i;
 	return 1;
 }
 
+//  switch (tipo_send)
+//     {
+//     case '1':
+        
+//         MPI_Send(buf_envio, count, MPI_INT, dest, tag, MPI_COMM_WORLD);
+//         break;
+//     case '2':
+//         MPI_Request request;
+//         MPI_Status status;
+//         MPI_Isend(buf_envio, count, MPI_INT, dest, tag, MPI_COMM_WORLD, &request);
+//         MPI_Wait(&request, &status);
+//         break;
+//     case '3':
+//         MPI_Rsend(buf_envio, count, MPI_INT, dest, tag, MPI_COMM_WORLD);
+//         break;
+
 void escolhe_send(char a, void *buf, int count, MPI_Datatype type, int dest, int tag) {
 
     switch (a)
     {
     case '1':
-        /* code */
+        MPI_Send(buf, count, type, dest, tag, MPI_COMM_WORLD);
         break;
     case '2':
-        /* code */
+        MPI_Request request;
+        MPI_Status status;
+        MPI_Isend(buf, count, type, dest, tag, MPI_COMM_WORLD, &request);
+        MPI_Wait(&request, &status);
         break;
     case '3':
-        /* code */
+        //Caso pro Rsend que não é apropriado para o bag of tasks
         break;
     case '4':
         MPI_Bsend(buf, count, type, dest, tag, MPI_COMM_WORLD);
