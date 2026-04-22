@@ -12,22 +12,6 @@ int i;
 	return 1;
 }
 
-//  switch (tipo_send)
-//     {
-//     case '1':
-        
-//         MPI_Send(buf_envio, count, MPI_INT, dest, tag, MPI_COMM_WORLD);
-//         break;
-//     case '2':
-//         MPI_Request request;
-//         MPI_Status status;
-//         MPI_Isend(buf_envio, count, MPI_INT, dest, tag, MPI_COMM_WORLD, &request);
-//         MPI_Wait(&request, &status);
-//         break;
-//     case '3':
-//         MPI_Rsend(buf_envio, count, MPI_INT, dest, tag, MPI_COMM_WORLD);
-//         break;
-
 void escolhe_send(char a, void *buf, int count, MPI_Datatype type, int dest, int tag) {
 
     switch (a)
