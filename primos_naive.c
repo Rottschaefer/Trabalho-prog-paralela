@@ -31,32 +31,11 @@ int meu_ranque, num_procs, inicio=3, fim, salto, tamanho_bloco;
 
 	t_inicial = MPI_Wtime();
 
-	if(meu_ranque == 0){
+	tamanho_bloco = n/num_procs;
+	inicio = 3 + meu_ranque*tamanho_bloco;
+	fim = inicio + tamanho_bloco;
 
-		tamanho_bloco = n/num_procs;
-
-		for (int j = 1; j < num_procs; j++)
-			{	
-			inicio = 3 + j*tamanho_bloco;
-			fim = inicio + tamanho_bloco;
-	
-			if(inicio%2 == 0)inicio++;
-
-			MPI_Send(&inicio, 1, MPI_INT, j, 1, MPI_COMM_WORLD);
-			MPI_Send(&fim, 1, MPI_INT, j, 2, MPI_COMM_WORLD);
-			}
-
-		//Reiniciando as variáveis pro processo 0
-		inicio = 3;
-		fim = 3 + tamanho_bloco;
-		
-	}
-	else{
-		MPI_Status status;
-		MPI_Recv(&inicio, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, &status);
-		MPI_Recv(&fim, 1, MPI_INT, 0, 2, MPI_COMM_WORLD, &status);
-	}
-
+	if(inicio%2 == 0)inicio++; //Evitando que a contagem comece de um par
 
 
 	for (i = inicio; i < fim && i<=n; i += 2) if(primo(i) == 1) cont++;
@@ -68,7 +47,7 @@ int meu_ranque, num_procs, inicio=3, fim, salto, tamanho_bloco;
 	if(meu_ranque == 0){
 
 		MPI_Status status;
-		
+
 		total += cont;
 		for (int j = 1; j < num_procs; j++)
 		{
