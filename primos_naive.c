@@ -12,18 +12,65 @@ int primo (long int n) { /* mpi_primos.c  */
 	return 1;
 }
 
+
+void escolhe_send(char a, void *buf, int count, MPI_Datatype type, int dest, int tag) {
+
+    switch (a)
+    {
+    case '1':
+        MPI_Send(buf, count, type, dest, tag, MPI_COMM_WORLD);
+        break;
+    case '2':
+        MPI_Request request;
+        MPI_Status status;
+        MPI_Isend(buf, count, type, dest, tag, MPI_COMM_WORLD, &request);
+        MPI_Wait(&request, &status);
+        break;
+    case '3':
+        MPI_Rsend(buf, count, type, dest, tag, MPI_COMM_WORLD);
+        break;
+    case '4':
+        MPI_Bsend(buf, count, type, dest, tag, MPI_COMM_WORLD);
+        break;
+    case '5':
+        MPI_Ssend(buf, count, type, dest, tag, MPI_COMM_WORLD);
+        break;
+    default:
+        break;
+    }
+}
+
+void escolhe_receive(char b, void *buf, int count, MPI_Datatype type, int source, int tag, MPI_Status *status) {
+
+    //MPI_Request request;
+    switch (b)
+    {
+    case '1':
+        MPI_Recv(buf, count, type, source, tag, MPI_COMM_WORLD, status);
+        break;
+    case '2':
+        /* code */
+        //MPI_Wait(&request, status);
+        break;
+    default:
+        break;
+    }
+}
+
 int main(int argc, char *argv[]) {
 double t_inicial, t_final;
 int cont = 0, total = 0;
 long int i, n;
 int meu_ranque, num_procs, inicio=3, fim, salto, tamanho_bloco;
 
-	if (argc < 2) {
-        	printf("Valor inválido! Entre com um valor do maior inteiro\n");
-       	 	return 0;
-    	} else {
-        	n = strtol(argv[1], (char **) NULL, 10);
-       	}
+	if (argc < 4) {
+        printf("Uso: %s <limite> <modo_send> <modo_recv>\n", argv[0]);
+        return 0;
+    }
+    
+    n = atoi(argv[1]);
+    char m_send = argv[2][0];
+    char m_recv = argv[3][0];
 
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &meu_ranque);
@@ -40,9 +87,7 @@ int meu_ranque, num_procs, inicio=3, fim, salto, tamanho_bloco;
 
 	for (i = inicio; i < fim && i<=n; i += 2) if(primo(i) == 1) cont++;
 	
-	printf("Processo %d - inicio: %d - fim: %d - contagem:%d\n", meu_ranque, inicio, fim, cont); 
-
-	if(meu_ranque != 0) MPI_Send(&cont, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+	// printf("Processo %d - inicio: %d - fim: %d - contagem:%d\n", meu_ranque, inicio, fim, cont); 
 
 	if(meu_ranque == 0){
 
@@ -51,11 +96,17 @@ int meu_ranque, num_procs, inicio=3, fim, salto, tamanho_bloco;
 		total += cont;
 		for (int j = 1; j < num_procs; j++)
 		{
-			MPI_Recv(&cont, 1, MPI_INT, j, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+			escolhe_receive(m_recv, &cont, 1, MPI_INT, j, MPI_ANY_TAG, &status);
 			total+=cont;
 		}
 		
 	}
+
+	else{ 
+		escolhe_send(m_send, &cont, 1, MPI_INT, 0, 0);
+	}
+
+	
 		
 	
 	t_final = MPI_Wtime();
