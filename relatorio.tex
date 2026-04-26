@@ -65,6 +65,8 @@ Os testes foram executados com 4 processos MPI e limite de entrada igual a 500.0
 
 \section{Resultados}
 \subsection{Naive}
+
+\subsubsection{Comunicação com \texttt{MPI\_Recv}}
 \begin{table}[H]
 \centering
 \begin{tabular}{|c|c|c|c|}
@@ -82,12 +84,35 @@ MPI\_Bsend & 473.966 & 1,428 & 0,357 \\
 MPI\_Ssend & 460.119 & 1,470 & 0,367 \\
 \hline
 \end{tabular}
-\caption{Resultados finais da versão naive.}
+\caption{Resultados naive utilizando \texttt{MPI\_Recv}.}
 \end{table}
 
-Na versão naive, o menor tempo foi obtido com \texttt{MPI\_Ssend}, enquanto o maior tempo ocorreu com \texttt{MPI\_Send}.
+\subsubsection{Comunicação com \texttt{MPI\_Irecv}}
+\begin{table}[H]
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline
+\textbf{Modo de envio} & \textbf{Tempo (s)} & \textbf{Speedup} & \textbf{Eficiência} \\
+\hline
+MPI\_Send & - & - & - \\
+\hline
+MPI\_Isend & - & - & - \\
+\hline
+MPI\_Rsend & - & - & - \\
+\hline
+MPI\_Bsend & - & - & - \\
+\hline
+MPI\_Ssend & - & - & - \\
+\hline
+\end{tabular}
+\caption{Resultados naive utilizando \texttt{MPI\_Irecv}.}
+\end{table}
+
+Na versão naive com \texttt{MPI\_Recv}, o menor tempo foi obtido com \texttt{MPI\_Ssend}, enquanto o maior tempo ocorreu com \texttt{MPI\_Send}.
 
 \subsection{Bag of Tasks}
+
+\subsubsection{Comunicação com \texttt{MPI\_Recv}}
 \begin{table}[H]
 \centering
 \begin{tabular}{|c|c|c|c|}
@@ -103,10 +128,29 @@ MPI\_Bsend & 376.629 & 1,797 & 0,449 \\
 MPI\_Ssend & 375.820 & 1,801 & 0,450 \\
 \hline
 \end{tabular}
-\caption{Resultados finais da versão bag of tasks.}
+\caption{Resultados bag of tasks utilizando \texttt{MPI\_Recv}.}
 \end{table}
 
-Na versão bag of tasks, o menor tempo foi obtido com \texttt{MPI\_Ssend}, e o maior tempo com \texttt{MPI\_Isend}.
+\subsubsection{Comunicação com \texttt{MPI\_Irecv}}
+\begin{table}[H]
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline
+\textbf{Modo de envio} & \textbf{Tempo (s)} & \textbf{Speedup} & \textbf{Eficiência} \\
+\hline
+MPI\_Send & - & - & - \\
+\hline
+MPI\_Isend & - & - & - \\
+\hline
+MPI\_Bsend & - & - & - \\
+\hline
+MPI\_Ssend & - & - & - \\
+\hline
+\end{tabular}
+\caption{Resultados bag of tasks utilizando \texttt{MPI\_Irecv}.}
+\end{table}
+
+Na versão bag of tasks com \texttt{MPI\_Recv}, o menor tempo foi obtido com \texttt{MPI\_Ssend}, e o maior tempo com \texttt{MPI\_Isend}.
 
 \section{Conclusão}
 A versão bag of tasks apresentou desempenho superior à versão naive em todas as combinações registradas. Isso é compatível com o comportamento esperado de uma distribuição dinâmica de carga, que reduz o tempo ocioso e melhora o aproveitamento dos processos paralelos.
