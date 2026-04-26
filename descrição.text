@@ -1,0 +1,27 @@
+Desenvolva e execute os dois programas de Cálculo de Números Primos (Naive e Bag of Tasks), usando as seguintes instruções de comunicação de envio ponto a ponto:
+
+MPI_Send
+MPI_Isend
+MPI_Rsend
+MPI_Bsend
+MPI_Ssend
+
+Combinando com as operações de  MPI_Recv ou MPI_Irecv
+
+Para o caso Naive -  10 combinações
+Para  o caso Bag of tasks - 9 combinações
+
+
+Avaliar os speedups e eficiências dos 19 casos, com 4 processos distintos. O valor passado como parâmetro deverá ser 500.000.000.
+
+
+O trabalho será avaliado pelos programas implementados, pelo  relatório e pelo  seminário.
+
+O trabalho deverá ser realizado em grupo de 3 pessoas. Para o seminário será sorteado um dos membros para a apresentação. O grupo levará a nota  obtida  por esse representante. Ou seja, se for mal, o grupo todo receberá a mesma nota.
+
+Isso obrigará todo o grupo a se preparar igualmente para fazer o mesmo nível de apresentação.
+
+Na apresentação, serão realizadas perguntas para verificar se o integrante realmente fez o trabalho e conhece a aplicação e as operações de MPI usadas.
+
+Quant. de primos entre 1 e n: 26355867 
+Tempo de execucao: 676.828

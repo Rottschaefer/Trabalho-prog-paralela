@@ -1,0 +1,19 @@
+# Executáveis C/MPI
+main
+primos_bag
+primos_naive
+bin/
+
+# Arquivos de controle do LaTeX
+*.aux
+*.bbl
+*.blg
+*.brf
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.lof
+*.lot
