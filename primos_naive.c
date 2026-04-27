@@ -3,7 +3,7 @@
 #include "mpi.h"
 #include <math.h>
 
-// Função matemática otimizada (mesma do Bag of Tasks)
+// Função matemática otimizada
 int primo(int n) {
     if (n <= 1) return 0;
     if (n == 2) return 1;
@@ -25,7 +25,7 @@ void escolhe_send(char a, void *buf, int count, MPI_Datatype type, int dest, int
         case '2':
             MPI_Isend(buf, count, type, dest, tag, MPI_COMM_WORLD, req);
             break;
-        case '3': // RSEND - Funciona bem no Naive pois o mestre já vai estar esperando no Recv
+        case '3': 
             MPI_Rsend(buf, count, type, dest, tag, MPI_COMM_WORLD);
             if (req != NULL) *req = MPI_REQUEST_NULL;
             break;
@@ -57,7 +57,6 @@ void escolhe_receive(char b, void *buf, int count, MPI_Datatype type, int source
 }
 
 int main(int argc, char *argv[]) {
-    // 1. MPI_Init deve ser sempre a primeira instrução
     MPI_Init(&argc, &argv);
     
     double t_inicial, t_final;
@@ -86,17 +85,14 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // 2. Preparação invertida do BSend (No Naive, o Mestre NÃO envia nada!)
     if (m_send == '4') {
         int size_int;
         int buffer_size;
         MPI_Pack_size(1, MPI_INT, MPI_COMM_WORLD, &size_int);
         
         if (meu_ranque == 0) {
-            // O Mestre só recebe. Não precisa alocar buffer.
             buffer_size = 0; 
         } else {
-            // Os Escravos mandam apenas 1 mensagem final para o mestre.
             buffer_size = 1 * (size_int + MPI_BSEND_OVERHEAD);
         }
         
@@ -109,13 +105,13 @@ int main(int argc, char *argv[]) {
     MPI_Barrier(MPI_COMM_WORLD);
     t_inicial = MPI_Wtime();
 
-    // 3. Lógica Naive (Divisão Estática de Blocos corrigida matematicamente)
+    // ================== CÁLCULO DOS BLOCOS (INTERVALO ABERTO) ==================
     tamanho_bloco = n / num_procs;
     inicio = meu_ranque * tamanho_bloco;
     
-    // O último processo assume o resto da divisão para não perder nenhum número
+    // O último processo assume até o limite 'n', mas o laço usará '< fim'
     if (meu_ranque == num_procs - 1) {
-        fim = n + 1; 
+        fim = n; 
     } else {
         fim = inicio + tamanho_bloco;
     }
@@ -124,8 +120,8 @@ int main(int argc, char *argv[]) {
     if (inicio < 3) inicio = 3;
     if (inicio % 2 == 0) inicio++;
 
-    // O coração do programa: Todos processam ao mesmo tempo sem depender do Mestre
-    for (i = inicio; i < fim && i <= n; i += 2) {
+    // O coração do programa: Usa < fim (garante que n nunca será testado)
+    for (i = inicio; i < fim; i += 2) {
         if (primo(i)) cont++;
     }
 
@@ -134,12 +130,10 @@ int main(int argc, char *argv[]) {
         MPI_Status estado;
         MPI_Request req_recv = MPI_REQUEST_NULL;
         
-        total += cont; // O mestre soma a própria carga que ele processou
+        total += cont; // O mestre soma a própria carga
         
-        // Fica esperando apenas 1 mensagem de cada escravo
         for (int j = 1; j < num_procs; j++) {
             int cont_parcial;
-            // Usa MPI_ANY_SOURCE para receber de quem terminar primeiro
             escolhe_receive(m_recv, &cont_parcial, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, &estado, &req_recv);
             
             if (req_recv != MPI_REQUEST_NULL) {
@@ -152,7 +146,6 @@ int main(int argc, char *argv[]) {
     else { 
         MPI_Request req_envio = MPI_REQUEST_NULL;
         
-        // Não precisa de duplo buffer porque só manda uma vez e encerra
         escolhe_send(m_send, &cont, 1, MPI_INT, 0, 1, &req_envio);
         
         if (req_envio != MPI_REQUEST_NULL) {
@@ -163,14 +156,17 @@ int main(int argc, char *argv[]) {
     // ================== FINALIZAÇÃO ==================
     if (meu_ranque == 0) {
         t_final = MPI_Wtime();
-        if (n >= 2) total += 1; /* Acrescenta o 2, que é primo */
+        
+        // CORREÇÃO: No intervalo aberto (0, n[, o número '2' só está contido se n > 2.
+        if (n > 2) total += 1; 
+        
         printf("Quant. de primos entre 1 e %d: %d \n", n, total);
         printf("Tempo de execucao: %1.3f s\n", t_final - t_inicial);      
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
     
-    if (m_send == '4' && meu_ranque != 0) { // Apenas quem alocou precisa liberar
+    if (m_send == '4' && meu_ranque != 0) {
         int size_extra;
         MPI_Buffer_detach(&buffer_bsend, &size_extra);
         free(buffer_bsend);
