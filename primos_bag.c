@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "mpi.h"
 #include <math.h>
-#define TAMANHO 50000
+#define TAMANHO 500000
 
 int primo (int n) {
 int i;
@@ -120,7 +120,7 @@ MPI_Status estado;
     if (meu_ranque == 0) { 
         MPI_Request *reqs_tarefas = NULL;
         int *buffer_tarefas = NULL;
-        MPI_Request req_recv = = MPI_REQUEST_NULL;
+        MPI_Request req_recv = MPI_REQUEST_NULL;
         
         // Aloca os arrays APENAS se o modo for ISend ('2') para evitar redundância com BSend e poupar RAM
         if (m_send == '2') {
