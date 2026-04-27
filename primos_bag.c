@@ -192,6 +192,12 @@ MPI_Status estado;
         }
         // Limpeza dos arrays caso o ISend tenha sido utilizado
         if (m_send == '2') {
+            (i = 1; i < num_procs; i++) {
+                if (reqs_tarefas[i] != MPI_REQUEST_NULL) {
+                    MPI_Wait(&reqs_tarefas[i], MPI_STATUS_IGNORE);
+                }
+            }
+
             free(reqs_tarefas);
             free(buffer_tarefas);
         }
