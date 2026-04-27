@@ -41,16 +41,19 @@ void escolhe_send(char a, void *buf, int count, MPI_Datatype type, int dest, int
 
 void escolhe_receive(char b, void *buf, int count, MPI_Datatype type, int source, int tag, MPI_Status *status) {
 
-    //MPI_Request request;
     switch (b)
     {
     case '1':
         MPI_Recv(buf, count, type, source, tag, MPI_COMM_WORLD, status);
         break;
-    case '2':
-        /* code */
-        //MPI_Wait(&request, status);
+
+    case '2': {
+        MPI_Request request;
+        MPI_Irecv(buf, count, type, source, tag, MPI_COMM_WORLD, &request);
+        MPI_Wait(&request, status);
         break;
+    }
+
     default:
         break;
     }
