@@ -13,31 +13,45 @@ int primo(int n) {
     return 1;
 }
 
-void escolhe_send(char a, void *buf, int count, MPI_Datatype type, int dest, int tag) {
-    switch (a) {
-    case '1':
-        MPI_Send(buf, count, type, dest, tag, MPI_COMM_WORLD);
-        break;
+int calcula_primos_intervalo(int inicio, int fim, int n) {
+    int i;
+    int cont = 0;
 
-    case '2': {
-        MPI_Request request;
-        MPI_Status status;
-
-        MPI_Isend(buf, count, type, dest, tag, MPI_COMM_WORLD, &request);
-        MPI_Wait(&request, &status);
-        break;
+    if (inicio % 2 == 0) {
+        inicio++;
     }
 
+    for (i = inicio; i < fim && i <= n; i += 2) {
+        if (primo(i)) {
+            cont++;
+        }
+    }
+
+    return cont;
+}
+
+void inicia_send_int(char modo_send, int *buf, int dest, int tag, MPI_Request *request) {
+    *request = MPI_REQUEST_NULL;
+
+    switch (modo_send) {
+    case '1':
+        MPI_Send(buf, 1, MPI_INT, dest, tag, MPI_COMM_WORLD);
+        break;
+
+    case '2':
+        MPI_Isend(buf, 1, MPI_INT, dest, tag, MPI_COMM_WORLD, request);
+        break;
+
     case '3':
-        MPI_Rsend(buf, count, type, dest, tag, MPI_COMM_WORLD);
+        MPI_Rsend(buf, 1, MPI_INT, dest, tag, MPI_COMM_WORLD);
         break;
 
     case '4':
-        MPI_Bsend(buf, count, type, dest, tag, MPI_COMM_WORLD);
+        MPI_Bsend(buf, 1, MPI_INT, dest, tag, MPI_COMM_WORLD);
         break;
 
     case '5':
-        MPI_Ssend(buf, count, type, dest, tag, MPI_COMM_WORLD);
+        MPI_Ssend(buf, 1, MPI_INT, dest, tag, MPI_COMM_WORLD);
         break;
 
     default:
@@ -45,22 +59,20 @@ void escolhe_send(char a, void *buf, int count, MPI_Datatype type, int dest, int
     }
 }
 
-void escolhe_receive(char b, void *buf, int count, MPI_Datatype type, int source, int tag, MPI_Status *status) {
-    switch (b) {
-    case '1':
-        MPI_Recv(buf, count, type, source, tag, MPI_COMM_WORLD, status);
-        break;
-
-    case '2': {
-        MPI_Request request;
-
-        MPI_Irecv(buf, count, type, source, tag, MPI_COMM_WORLD, &request);
-        MPI_Wait(&request, status);
-        break;
+void espera_request(MPI_Request *request) {
+    if (*request != MPI_REQUEST_NULL) {
+        MPI_Wait(request, MPI_STATUS_IGNORE);
+        *request = MPI_REQUEST_NULL;
     }
+}
 
-    default:
-        break;
+void recebe_int_bloqueante(char modo_recv, int *buf, int source, int tag, MPI_Status *status) {
+    if (modo_recv == '1') {
+        MPI_Recv(buf, 1, MPI_INT, source, tag, MPI_COMM_WORLD, status);
+    } else {
+        MPI_Request request;
+        MPI_Irecv(buf, 1, MPI_INT, source, tag, MPI_COMM_WORLD, &request);
+        MPI_Wait(&request, status);
     }
 }
 
@@ -85,6 +97,23 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &meu_ranque);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
 
+    if (m_send < '1' || m_send > '5') {
+        if (meu_ranque == 0) {
+            printf("Modo de envio inválido. Use 1, 2, 3, 4 ou 5.\n");
+        }
+
+        MPI_Finalize();
+        return 1;
+    }
+
+    if (m_recv != '1' && m_recv != '2') {
+        if (meu_ranque == 0) {
+            printf("Modo de recebimento inválido. Use 1 para MPI_Recv ou 2 para MPI_Irecv.\n");
+        }
+
+        MPI_Finalize();
+        return 1;
+    }
 
     if (m_send == '4') {
         int size_int;
@@ -105,34 +134,74 @@ int main(int argc, char *argv[]) {
         MPI_Buffer_attach(buffer_bsend, buffer_size);
     }
 
+    tamanho_bloco = n / num_procs;
+    inicio = 3 + meu_ranque * tamanho_bloco;
+
+    if (meu_ranque == num_procs - 1) {
+        fim = n + 1;
+    } else {
+        fim = inicio + tamanho_bloco;
+    }
+
     MPI_Barrier(MPI_COMM_WORLD);
     t_inicial = MPI_Wtime();
 
-    tamanho_bloco = n / num_procs;
-    inicio = 3 + meu_ranque * tamanho_bloco;
-    fim = inicio + tamanho_bloco;
+    if (m_recv == '2' && meu_ranque == 0) {
+        int qtd_workers = num_procs - 1;
+        int *parciais = malloc(qtd_workers * sizeof(int));
+        MPI_Request *recv_requests = malloc(qtd_workers * sizeof(MPI_Request));
+        MPI_Status *recv_statuses = malloc(qtd_workers * sizeof(MPI_Status));
 
-    if (inicio % 2 == 0) {
-        inicio++;
-    }
-
-    for (i = inicio; i < fim && i <= n; i += 2) {
-        if (primo(i) == 1) {
-            cont++;
+        if (parciais == NULL || recv_requests == NULL || recv_statuses == NULL) {
+            printf("Erro de alocação no processo raiz.\n");
+            MPI_Abort(MPI_COMM_WORLD, 1);
         }
-    }
 
-    if (meu_ranque == 0) {
-        MPI_Status status;
+        /*
+         * Aqui está o ponto importante:
+         * o processo 0 posta todos os MPI_Irecv antes de calcular sua própria faixa.
+         * Assim, os recebimentos já ficam ativos enquanto o processo 0 também calcula.
+         */
+        for (i = 1; i < num_procs; i++) {
+            MPI_Irecv(&parciais[i - 1], 1, MPI_INT, i, MPI_ANY_TAG,
+                      MPI_COMM_WORLD, &recv_requests[i - 1]);
+        }
 
+        cont = calcula_primos_intervalo(inicio, fim, n);
         total += cont;
 
-        for (int j = 1; j < num_procs; j++) {
-            escolhe_receive(m_recv, &cont, 1, MPI_INT, j, MPI_ANY_TAG, &status);
-            total += cont;
+        MPI_Waitall(qtd_workers, recv_requests, recv_statuses);
+
+        for (i = 0; i < qtd_workers; i++) {
+            total += parciais[i];
         }
+
+        free(parciais);
+        free(recv_requests);
+        free(recv_statuses);
     } else {
-        escolhe_send(m_send, &cont, 1, MPI_INT, 0, 0);
+        cont = calcula_primos_intervalo(inicio, fim, n);
+
+        if (meu_ranque == 0) {
+            MPI_Status status;
+
+            total += cont;
+
+            for (i = 1; i < num_procs; i++) {
+                recebe_int_bloqueante(m_recv, &cont, i, MPI_ANY_TAG, &status);
+                total += cont;
+            }
+        } else {
+            MPI_Request send_request;
+
+            inicia_send_int(m_send, &cont, 0, 0, &send_request);
+
+            /*
+             * O Wait não fica mais dentro da função de envio.
+             * Aqui o processo espera apenas antes de finalizar, garantindo que o envio terminou.
+             */
+            espera_request(&send_request);
+        }
     }
 
     t_final = MPI_Wtime();
