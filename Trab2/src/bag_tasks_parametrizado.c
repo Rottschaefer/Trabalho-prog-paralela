@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
     long N = atol(argv[2]);
     char *escalonamento = argv[3];
     long bag_size = 1000;
-    int chunk = 10
+    int chunk = 10;
 
     if (argc == 5) {
         bag_size = atol(argv[4]);
